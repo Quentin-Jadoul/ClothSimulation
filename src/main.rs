@@ -88,13 +88,52 @@ impl MyApp {
             wgpu::PrimitiveTopology::TriangleList
         );
 
-        let cloth_vertices = vec![
-            Vertex {position:[-20.0, 15.0,-20.0] ,normal:[0.0,0.0,1.0], tangent: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
-            Vertex {position:[20.0, 15.0,-20.0] ,normal:[0.0,0.0,1.0], tangent: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
-            Vertex {position:[20.0,15.0,20.0] ,normal:[0.0,0.0,1.0], tangent: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
-            Vertex {position:[-20.0,15.0,20.0] ,normal:[0.0,0.0,1.0], tangent: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
-        ];
-        let cloth_indices = vec![0,2,1,0,3,2];
+        // we want to change the size of the cloth, the number of vertices and the start position
+        const CLOTH_SIZE: u32 = 25;
+        const N_CLOTH_VERTICES_PER_ROW: u32 = 30; // the cloth is a square, the minimum is 2
+        const CLOTH_CENTER_X: f32 = 0.0;
+        const CLOTH_CENTER_Y: f32 = 15.0;
+        const CLOTH_CENTER_Z: f32 = 0.0;
+        // create the cloth
+        let mut cloth_vertices = Vec::new();
+        let mut cloth_indices: Vec<u16> = Vec::new();
+        
+        // create the vertices
+        for i in 0..N_CLOTH_VERTICES_PER_ROW {
+            for j in 0..N_CLOTH_VERTICES_PER_ROW {
+                cloth_vertices.push(Vertex {
+                    position: [
+                        CLOTH_CENTER_X + (i as f64 * (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64)) as f32 - (CLOTH_SIZE / 2) as f32,
+                        CLOTH_CENTER_Y,
+                        CLOTH_CENTER_Z + (j as f64 * (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64)) as f32 - (CLOTH_SIZE / 2) as f32,
+                    ],
+                    normal: [0.0, 0.0, 0.0],
+                    tangent: [0.0, 0.0, 0.0],
+                    tex_coords: [0.0, 0.0],
+                });
+            }
+        }
+        // create the indices
+        for i in 0..N_CLOTH_VERTICES_PER_ROW - 1 {
+            for j in 0..N_CLOTH_VERTICES_PER_ROW - 1 {
+                // first triangle
+                cloth_indices.push((i * N_CLOTH_VERTICES_PER_ROW + j) as u16);
+                cloth_indices.push((i * N_CLOTH_VERTICES_PER_ROW + j + 1) as u16);
+                cloth_indices.push(((i + 1) * N_CLOTH_VERTICES_PER_ROW + j) as u16);
+                // second triangle
+                cloth_indices.push((i * N_CLOTH_VERTICES_PER_ROW + j + 1) as u16);
+                cloth_indices.push(((i + 1) * N_CLOTH_VERTICES_PER_ROW + j + 1) as u16);
+                cloth_indices.push(((i + 1) * N_CLOTH_VERTICES_PER_ROW + j) as u16);
+            }
+        }
+        // // create a cloth
+        // let cloth_vertices = vec![
+        //     Vertex {position:[-20.0, 15.0,-20.0] ,normal:[0.0,0.0,1.0], tangent: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
+        //     Vertex {position:[20.0, 15.0,-20.0] ,normal:[0.0,0.0,1.0], tangent: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
+        //     Vertex {position:[20.0,15.0,20.0] ,normal:[0.0,0.0,1.0], tangent: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
+        //     Vertex {position:[-20.0,15.0,20.0] ,normal:[0.0,0.0,1.0], tangent: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
+        // ];
+        // let cloth_indices = vec![0,2,1,0,3,2];
 
         // create a buffer for the cloth
         let cloth_vertex_buffer = context.create_buffer(
