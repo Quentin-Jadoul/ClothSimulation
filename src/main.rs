@@ -17,12 +17,22 @@ use wgpu_bootstrap::{
 //     nb_instances: u32,
 // }
 
+struct velocity {
+    pub velocity: [f32; 3]
+}
+
 struct MyApp {
     camera_bind_group: wgpu::BindGroup,
+    // sphere
     sphere_pipeline: wgpu::RenderPipeline,
     sphere_vertex_buffer: wgpu::Buffer,
     sphere_index_buffer: wgpu::Buffer,
     sphere_indices: Vec<u16>,
+    // cloth
+    cloth_pipeline: wgpu::RenderPipeline,
+    cloth_vertex_buffer: wgpu::Buffer,
+    cloth_index_buffer: wgpu::Buffer,
+    cloth_indices: Vec<u16>,
 }
 
 impl MyApp {
@@ -37,8 +47,10 @@ impl MyApp {
             zfar: 100.0,
         };
 
+        // camera ------------------------------------------------------------
         let (_camera_buffer, camera_bind_group) = camera.create_camera_bind_group(context);
 
+        // sphere ------------------------------------------------------------
         let sphere_pipeline = context.create_render_pipeline(
             "Render Pipeline Sphere",
             include_str!("blue.wgsl"),
@@ -53,7 +65,7 @@ impl MyApp {
         // agrandir la sphere :
         for vertex in sphere_vertices.iter_mut() {
             let mut posn = cgmath::Vector3::from(vertex.position);
-            posn *= 15.0;
+            posn *= 10.0;
             vertex.position = posn.into()
         }
 
@@ -67,12 +79,45 @@ impl MyApp {
             wgpu::BufferUsages::INDEX
         );
 
+        // Cloth ------------------------------------------------------------
+        let cloth_pipeline = context.create_render_pipeline(
+            "Render Pipeline Cloth",
+            include_str!("red.wgsl"),
+            &[Vertex::desc()],
+            &[&context.camera_bind_group_layout],
+            wgpu::PrimitiveTopology::TriangleList
+        );
+
+        let cloth_vertices = vec![
+            Vertex {position:[-20.0, 15.0,-20.0] ,normal:[0.0,0.0,1.0], tangent: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
+            Vertex {position:[20.0, 15.0,-20.0] ,normal:[0.0,0.0,1.0], tangent: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
+            Vertex {position:[20.0,15.0,20.0] ,normal:[0.0,0.0,1.0], tangent: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
+            Vertex {position:[-20.0,15.0,20.0] ,normal:[0.0,0.0,1.0], tangent: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
+        ];
+        let cloth_indices = vec![0,2,1,0,3,2];
+
+        // create a buffer for the cloth
+        let cloth_vertex_buffer = context.create_buffer(
+            &cloth_vertices,
+            wgpu::BufferUsages::VERTEX
+        );
+        let cloth_index_buffer = context.create_buffer(
+            &cloth_indices,
+            wgpu::BufferUsages::INDEX
+        );
+
         Self {
             camera_bind_group,
+            // sphere
             sphere_pipeline,
             sphere_vertex_buffer,
             sphere_index_buffer,
             sphere_indices,
+            // cloth
+            cloth_pipeline,
+            cloth_vertex_buffer,
+            cloth_index_buffer,
+            cloth_indices,
         }
     }
     
@@ -90,6 +135,12 @@ impl Application for MyApp {
             render_pass.set_vertex_buffer(0, self.sphere_vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.sphere_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..self.sphere_indices.len() as u32, 0, 0..1);
+            // render the cloth as a triangle list
+            render_pass.set_pipeline(&self.cloth_pipeline);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, self.cloth_vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.cloth_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.draw_indexed(0..self.cloth_indices.len() as u32, 0, 0..1);
         }
 
         frame.present();
