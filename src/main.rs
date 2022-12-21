@@ -22,6 +22,13 @@ struct ComputeData {
     sphere_center_x: f32,
     sphere_center_y: f32,
     sphere_center_z: f32,
+    vertex_mass: f32,
+    structural_stiffness: f32,
+    shear_stiffness: f32,
+    bend_stiffness: f32,
+    structural_damping: f32,
+    shear_damping: f32,
+    bend_damping: f32,
 }
 
 #[repr(C)]
@@ -47,6 +54,15 @@ const SPHERE_RADIUS: f32 = 10.0;
 const SPHERE_CENTER_X: f32 = 0.0;
 const SPHERE_CENTER_Y: f32 = 0.0;
 const SPHERE_CENTER_Z: f32 = 0.0;
+// Physics
+const MASS: f32 = 0.1;
+const VERTEX_MASS: f32 = MASS / (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32;
+const STRUCTURAL_STIFFNESS: f32 = 100.0;
+const SHEAR_STIFFNESS: f32 = 100.0;
+const BEND_STIFFNESS: f32 = 100.0;
+const STRUCTURAL_DAMPING: f32 = 0.1;
+const SHEAR_DAMPING: f32 = 0.1;
+const BEND_DAMPING: f32 = 0.1;
 
 struct MyApp {
     camera_bind_group: wgpu::BindGroup,
@@ -217,6 +233,13 @@ impl MyApp {
             sphere_center_x: SPHERE_CENTER_X,
             sphere_center_y: SPHERE_CENTER_Y,
             sphere_center_z: SPHERE_CENTER_Z,
+            vertex_mass: VERTEX_MASS,
+            structural_stiffness: STRUCTURAL_STIFFNESS,
+            shear_stiffness: SHEAR_STIFFNESS,
+            bend_stiffness: BEND_STIFFNESS,
+            structural_damping: STRUCTURAL_DAMPING,
+            shear_damping: SHEAR_DAMPING,
+            bend_damping: BEND_DAMPING,
         };
 
         let compute_data_buffer = context.create_buffer(
@@ -400,6 +423,12 @@ impl MyApp {
             }
         }
 
+        // create a buffer for the springs
+        let springs_buffer = context.create_buffer(
+            &springs,
+            wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
+        );
+
         println!("{} springs", springs.len());
 
         Self {
@@ -460,6 +489,13 @@ impl Application for MyApp {
             sphere_center_x: SPHERE_CENTER_X,
             sphere_center_y: SPHERE_CENTER_Y,
             sphere_center_z: SPHERE_CENTER_Z,
+            vertex_mass: VERTEX_MASS,
+            structural_stiffness: STRUCTURAL_STIFFNESS,
+            shear_stiffness: SHEAR_STIFFNESS,
+            bend_stiffness: BEND_STIFFNESS,
+            structural_damping: STRUCTURAL_DAMPING,
+            shear_damping: SHEAR_DAMPING,
+            bend_damping: BEND_DAMPING,
         };
         context.update_buffer(&self.compute_data_buffer, &[compute_data]);
 
