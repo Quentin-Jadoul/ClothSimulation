@@ -21,6 +21,10 @@ struct Velocity {
 struct ComputeData {
     delta_time: f32,
     nb_vertices: u32,
+    sphere_radius: f32,
+    sphere_center_x: f32,
+    sphere_center_y: f32,
+    sphere_center_z: f32,
 }
 
 @group(0) @binding(0) var<storage, read_write> verticiesPositions: array<Position>;
@@ -43,9 +47,9 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
     // the sphere is centered at (0, 0, 0) and has a radius of 10
     // calculate the distance between the vertex and the extremity of the sphere
 
-    let sphere_center = vec3<f32>(0.0, 0.0, 0.0);
-    let sphere_radius = 10.0;
-
+    let sphere_center = vec3<f32>(data.sphere_center_x, data.sphere_center_y, data.sphere_center_z);
+    //let sphere_center = vec3<f32>(0.0, 0.0, 0.0);
+    let sphere_radius = data.sphere_radius;
     let position = vec3<f32>(verticiesPositions[param.x].position_x, verticiesPositions[param.x].position_y, verticiesPositions[param.x].position_z);
 
     let distance = length(position - sphere_center);

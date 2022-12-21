@@ -18,8 +18,10 @@ use wgpu_bootstrap::{
 struct ComputeData {
     delta_time: f32,
     nb_vertices: u32,
-    // sphere_radius: u32,
-    // sphere_center: [f32; 3],
+    sphere_radius: f32,
+    sphere_center_x: f32,
+    sphere_center_y: f32,
+    sphere_center_z: f32,
 }
 
 #[repr(C)]
@@ -34,6 +36,11 @@ const N_CLOTH_VERTICES_PER_ROW: u32 = 100; // the cloth is a square, the minimum
 const CLOTH_CENTER_X: f32 = 0.0;
 const CLOTH_CENTER_Y: f32 = 15.0;
 const CLOTH_CENTER_Z: f32 = 0.0;
+// Sphere
+const SPHERE_RADIUS: f32 = 10.0;
+const SPHERE_CENTER_X: f32 = 0.0;
+const SPHERE_CENTER_Y: f32 = 0.0;
+const SPHERE_CENTER_Z: f32 = 0.0;
 
 struct MyApp {
     camera_bind_group: wgpu::BindGroup,
@@ -82,11 +89,17 @@ impl MyApp {
 
         let (mut sphere_vertices, sphere_indices) = icosphere(4);
 
-        // agrandir la sphere :
+        // change the radius of the sphere :
         for vertex in sphere_vertices.iter_mut() {
             let mut posn = cgmath::Vector3::from(vertex.position);
-            posn *= 10.0;
+            posn *= SPHERE_RADIUS as f32;
             vertex.position = posn.into()
+        }
+        // change the center of the sphere :
+        for vertex in sphere_vertices.iter_mut() {
+            vertex.position[0] += SPHERE_CENTER_X;
+            vertex.position[1] += SPHERE_CENTER_Y;
+            vertex.position[2] += SPHERE_CENTER_Z;
         }
 
         // create a buffer for the sphere
@@ -193,6 +206,10 @@ impl MyApp {
         let compute_data = ComputeData {
             delta_time: 0.016,
             nb_vertices: N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW,
+            sphere_radius: SPHERE_RADIUS,
+            sphere_center_x: SPHERE_CENTER_X,
+            sphere_center_y: SPHERE_CENTER_Y,
+            sphere_center_z: SPHERE_CENTER_Z,
         };
 
         let compute_data_buffer = context.create_buffer(
@@ -265,6 +282,10 @@ impl Application for MyApp {
         let compute_data = ComputeData {
             delta_time,
             nb_vertices: N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW,
+            sphere_radius: SPHERE_RADIUS,
+            sphere_center_x: SPHERE_CENTER_X,
+            sphere_center_y: SPHERE_CENTER_Y,
+            sphere_center_z: SPHERE_CENTER_Z,
         };
         context.update_buffer(&self.compute_data_buffer, &[compute_data]);
 
