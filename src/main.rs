@@ -291,67 +291,67 @@ impl MyApp {
                     springs.push(Spring {
                         index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
                         index2: ((i - 1) * N_CLOTH_VERTICES_PER_ROW + j - 1) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 1.414,
+                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
                     });
                 }
                 if i > 0 && j < N_CLOTH_VERTICES_PER_ROW - 1 {
                     springs.push(Spring {
                         index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
                         index2: ((i - 1) * N_CLOTH_VERTICES_PER_ROW + j + 1) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 1.414,
+                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
                     });
                 }
                 if i < N_CLOTH_VERTICES_PER_ROW - 1 && j > 0 {
                     springs.push(Spring {
                         index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
                         index2: ((i + 1) * N_CLOTH_VERTICES_PER_ROW + j - 1) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 1.414,
+                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
                     });
                 }
                 if i < N_CLOTH_VERTICES_PER_ROW - 1 && j < N_CLOTH_VERTICES_PER_ROW - 1 {
                     springs.push(Spring {
                         index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
                         index2: ((i + 1) * N_CLOTH_VERTICES_PER_ROW + j + 1) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 1.414,
+                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
                     });
                 }
                 if (i == 0 && j == 0) || (i == 0 && j == N_CLOTH_VERTICES_PER_ROW - 1) || (i == N_CLOTH_VERTICES_PER_ROW - 1 && j == 0) || (i == N_CLOTH_VERTICES_PER_ROW - 1 && j == N_CLOTH_VERTICES_PER_ROW - 1) {
                     springs.push(Spring {
                         index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
                         index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 1.414,
+                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
                     });
                     springs.push(Spring {
                         index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
                         index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 1.414,
+                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
                     });
                     springs.push(Spring {
                         index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
                         index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 1.414,
+                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
                     });
                 } else if i == 0 || i == N_CLOTH_VERTICES_PER_ROW -1 {
                     springs.push(Spring {
                         index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
                         index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 1.414,
+                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
                     });
                     springs.push(Spring {
                         index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
                         index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 1.414,
+                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
                     });
                 } else if j == 0 || j == N_CLOTH_VERTICES_PER_ROW -1 {
                     springs.push(Spring {
                         index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
                         index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 1.414,
+                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
                     });
                     springs.push(Spring {
                         index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
                         index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 1.414,
+                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
                     });
                 }
                 // bend springs
