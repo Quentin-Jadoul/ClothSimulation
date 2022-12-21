@@ -30,7 +30,7 @@ struct Velocity {
 
 // we want to change the size of the cloth, the number of vertices and the start position
 const CLOTH_SIZE: u32 = 25;
-const N_CLOTH_VERTICES_PER_ROW: u32 = 50; // the cloth is a square, the minimum is 2
+const N_CLOTH_VERTICES_PER_ROW: u32 = 100; // the cloth is a square, the minimum is 2
 const CLOTH_CENTER_X: f32 = 0.0;
 const CLOTH_CENTER_Y: f32 = 15.0;
 const CLOTH_CENTER_Z: f32 = 0.0;
