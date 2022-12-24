@@ -25,30 +25,39 @@ struct ComputeData {
     sphere_center_x: f32,
     sphere_center_y: f32,
     sphere_center_z: f32,
+    vertex_mass: f32,
+    structural_stiffness: f32,
+    shear_stiffness: f32,
+    bend_stiffness: f32,
+    structural_damping: f32,
+    shear_damping: f32,
+    bend_damping: f32,
+}
+
+struct Spring {
+    vertex_index_1: f32,
+    vertex_index_2: f32,
+    rest_length: f32,
 }
 
 @group(0) @binding(0) var<storage, read_write> verticiesPositions: array<Position>;
 @group(1) @binding(0) var<storage, read_write> verticiesVelocities: array<Velocity>;
 @group(2) @binding(0) var<uniform> data: ComputeData;
+@group(3) @binding(0) var<storage, read> springsR: array<Spring>;
 
-@compute @workgroup_size(64, 1, 1)
+@compute @workgroup_size(128, 1, 1)
 fn main(@builtin(global_invocation_id) param: vec3<u32>) {
     if (param.x >= u32(data.nb_vertices)) {
           return;
     }
 
+    var spring = springsR[param.x];
+
     verticiesPositions[param.x].position_x += verticiesVelocities[param.x].velocity_x * data.delta_time;
     verticiesPositions[param.x].position_y += verticiesVelocities[param.x].velocity_y * data.delta_time;
     verticiesPositions[param.x].position_z += verticiesVelocities[param.x].velocity_z * data.delta_time;
 
-    verticiesVelocities[param.x].velocity_y += -9.81 * data.delta_time;
-
-    // some collision detection with the sphere
-    // the sphere is centered at (0, 0, 0) and has a radius of 10
-    // calculate the distance between the vertex and the extremity of the sphere
-
     let sphere_center = vec3<f32>(data.sphere_center_x, data.sphere_center_y, data.sphere_center_z);
-    //let sphere_center = vec3<f32>(0.0, 0.0, 0.0);
     let sphere_radius = data.sphere_radius;
     let position = vec3<f32>(verticiesPositions[param.x].position_x, verticiesPositions[param.x].position_y, verticiesPositions[param.x].position_z);
 
@@ -70,7 +79,4 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
         verticiesVelocities[param.x].velocity_y = 0.0;
         verticiesVelocities[param.x].velocity_z = 0.0;
     }
-    
-
-
 }

@@ -37,9 +37,11 @@ struct Velocity {
     pub velocity: [f32; 3]
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Spring {
-    pub index1: u32,
-    pub index2: u32,
+    pub index1: f32,
+    pub index2: f32,
     pub rest_length: f32,
 }
 
@@ -47,7 +49,7 @@ struct Spring {
 const CLOTH_SIZE: u32 = 25;
 const N_CLOTH_VERTICES_PER_ROW: u32 = 100; // the cloth is a square, the minimum is 2
 const CLOTH_CENTER_X: f32 = 0.0;
-const CLOTH_CENTER_Y: f32 = 15.0;
+const CLOTH_CENTER_Y: f32 = 30.0;
 const CLOTH_CENTER_Z: f32 = 0.0;
 // Sphere
 const SPHERE_RADIUS: f32 = 10.0;
@@ -55,14 +57,14 @@ const SPHERE_CENTER_X: f32 = 0.0;
 const SPHERE_CENTER_Y: f32 = 0.0;
 const SPHERE_CENTER_Z: f32 = 0.0;
 // Physics
-const MASS: f32 = 0.1;
+const MASS: f32 = 1.0;
 const VERTEX_MASS: f32 = MASS / (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32;
 const STRUCTURAL_STIFFNESS: f32 = 100.0;
 const SHEAR_STIFFNESS: f32 = 100.0;
 const BEND_STIFFNESS: f32 = 100.0;
-const STRUCTURAL_DAMPING: f32 = 0.1;
-const SHEAR_DAMPING: f32 = 0.1;
-const BEND_DAMPING: f32 = 0.1;
+const STRUCTURAL_DAMPING: f32 = 0.9;
+const SHEAR_DAMPING: f32 = 0.9;
+const BEND_DAMPING: f32 = 0.9;
 
 struct MyApp {
     camera_bind_group: wgpu::BindGroup,
@@ -78,11 +80,14 @@ struct MyApp {
     cloth_indices: Vec<u16>,
     // compute
     compute_pipeline: wgpu::ComputePipeline,
+    forces_compute_pipeline: wgpu::ComputePipeline,
     compute_vertices_bind_group: wgpu::BindGroup,
     compute_data_bind_group: wgpu::BindGroup,
     compute_velocities_bind_group: wgpu::BindGroup,
     compute_data_buffer: wgpu::Buffer,
     compute_data: ComputeData,
+    // spring
+    springs_bind_group: wgpu::BindGroup,
 }
 
 impl MyApp {
@@ -203,6 +208,11 @@ impl MyApp {
             "Compute Pipeline",
             include_str!("compute.wgsl"),
         );
+        // create the force compute pipeline
+        let forces_compute_pipeline = context.create_compute_pipeline(
+            "Forces Compute Pipeline",
+            include_str!("forces.wgsl")
+        );
 
         let compute_vertices_bind_group = context.create_bind_group(
             "compute vertices bind group",
@@ -227,7 +237,7 @@ impl MyApp {
 
         // compute data -----------------------------------------------------
         let compute_data = ComputeData {
-            delta_time: 0.016,
+            delta_time: 0.01,
             nb_vertices: N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW,
             sphere_radius: SPHERE_RADIUS,
             sphere_center_x: SPHERE_CENTER_X,
@@ -269,164 +279,180 @@ impl MyApp {
                 // structural springs
                 if i > 0 {
                     springs.push(Spring {
-                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        index2: ((i - 1) * N_CLOTH_VERTICES_PER_ROW + j) as u32,
+                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                        index2: ((i - 1) * N_CLOTH_VERTICES_PER_ROW + j) as f32,
                         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32,
                     });
                 }
                 if i < N_CLOTH_VERTICES_PER_ROW - 1 {
                     springs.push(Spring {
-                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        index2: ((i + 1) * N_CLOTH_VERTICES_PER_ROW + j) as u32,
+                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                        index2: ((i + 1) * N_CLOTH_VERTICES_PER_ROW + j) as f32,
                         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32,
                     });
                 }
                 if i == 0 || i == N_CLOTH_VERTICES_PER_ROW - 1{
                     springs.push(Spring {
-                        index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
+                        index1: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                        index2: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
                         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32,
                     });
                 }
                 if j > 0 {
                     springs.push(Spring {
-                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        index2: (i * N_CLOTH_VERTICES_PER_ROW + j - 1) as u32,
+                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                        index2: (i * N_CLOTH_VERTICES_PER_ROW + j - 1) as f32,
                         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32,
                     });
                 }
                 if j < N_CLOTH_VERTICES_PER_ROW - 1 {
                     springs.push(Spring {
-                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        index2: (i * N_CLOTH_VERTICES_PER_ROW + j + 1) as u32,
+                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                        index2: (i * N_CLOTH_VERTICES_PER_ROW + j + 1) as f32,
                         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32,
                     });
                 }
                 if j == 0 || j == N_CLOTH_VERTICES_PER_ROW - 1{
                     springs.push(Spring {
-                        index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
+                        index1: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                        index2: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
                         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32,
                     });
                 }
-                // shear springs
-                if i > 0 && j > 0 {
-                    springs.push(Spring {
-                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        index2: ((i - 1) * N_CLOTH_VERTICES_PER_ROW + j - 1) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
-                    });
-                }
-                if i > 0 && j < N_CLOTH_VERTICES_PER_ROW - 1 {
-                    springs.push(Spring {
-                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        index2: ((i - 1) * N_CLOTH_VERTICES_PER_ROW + j + 1) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
-                    });
-                }
-                if i < N_CLOTH_VERTICES_PER_ROW - 1 && j > 0 {
-                    springs.push(Spring {
-                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        index2: ((i + 1) * N_CLOTH_VERTICES_PER_ROW + j - 1) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
-                    });
-                }
-                if i < N_CLOTH_VERTICES_PER_ROW - 1 && j < N_CLOTH_VERTICES_PER_ROW - 1 {
-                    springs.push(Spring {
-                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        index2: ((i + 1) * N_CLOTH_VERTICES_PER_ROW + j + 1) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
-                    });
-                }
-                if (i == 0 && j == 0) || (i == 0 && j == N_CLOTH_VERTICES_PER_ROW - 1) || (i == N_CLOTH_VERTICES_PER_ROW - 1 && j == 0) || (i == N_CLOTH_VERTICES_PER_ROW - 1 && j == N_CLOTH_VERTICES_PER_ROW - 1) {
-                    springs.push(Spring {
-                        index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
-                    });
-                    springs.push(Spring {
-                        index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
-                    });
-                    springs.push(Spring {
-                        index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
-                    });
-                } else if i == 0 || i == N_CLOTH_VERTICES_PER_ROW -1 {
-                    springs.push(Spring {
-                        index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
-                    });
-                    springs.push(Spring {
-                        index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
-                    });
-                } else if j == 0 || j == N_CLOTH_VERTICES_PER_ROW -1 {
-                    springs.push(Spring {
-                        index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
-                    });
-                    springs.push(Spring {
-                        index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
-                    });
-                }
-                // bend springs
-                if i > 1 {
-                    springs.push(Spring {
-                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        index2: ((i - 2) * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2.0,
-                    });
-                }
-                if i < N_CLOTH_VERTICES_PER_ROW - 2 {
-                    springs.push(Spring {
-                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        index2: ((i + 2) * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2.0,
-                    });
-                }
-                if j > 1 {
-                    springs.push(Spring {
-                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        index2: (i * N_CLOTH_VERTICES_PER_ROW + j - 2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2.0,
-                    });
-                }
-                if j < N_CLOTH_VERTICES_PER_ROW - 2 {
-                    springs.push(Spring {
-                        index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as u32,
-                        index2: (i * N_CLOTH_VERTICES_PER_ROW + j + 2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2.0,
-                    });
-                }
-                if i <= 1 || i >= N_CLOTH_VERTICES_PER_ROW - 2 {
-                    springs.push(Spring {
-                        index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2.0,
-                    });
-                }
-                if j <= 1 || j >= N_CLOTH_VERTICES_PER_ROW - 2 {
-                    springs.push(Spring {
-                        index1: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        index2: (2 * N_CLOTH_VERTICES_PER_ROW^2) as u32,
-                        rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2.0,
-                    });
-                }
+                // // shear springs
+                // if i > 0 && j > 0 {
+                //     springs.push(Spring {
+                //         index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                //         index2: ((i - 1) * N_CLOTH_VERTICES_PER_ROW + j - 1) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
+                //     });
+                // }
+                // if i > 0 && j < N_CLOTH_VERTICES_PER_ROW - 1 {
+                //     springs.push(Spring {
+                //         index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                //         index2: ((i - 1) * N_CLOTH_VERTICES_PER_ROW + j + 1) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
+                //     });
+                // }
+                // if i < N_CLOTH_VERTICES_PER_ROW - 1 && j > 0 {
+                //     springs.push(Spring {
+                //         index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                //         index2: ((i + 1) * N_CLOTH_VERTICES_PER_ROW + j - 1) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
+                //     });
+                // }
+                // if i < N_CLOTH_VERTICES_PER_ROW - 1 && j < N_CLOTH_VERTICES_PER_ROW - 1 {
+                //     springs.push(Spring {
+                //         index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                //         index2: ((i + 1) * N_CLOTH_VERTICES_PER_ROW + j + 1) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
+                //     });
+                // }
+                // if (i == 0 && j == 0) || (i == 0 && j == N_CLOTH_VERTICES_PER_ROW - 1) || (i == N_CLOTH_VERTICES_PER_ROW - 1 && j == 0) || (i == N_CLOTH_VERTICES_PER_ROW - 1 && j == N_CLOTH_VERTICES_PER_ROW - 1) {
+                //     springs.push(Spring {
+                //         index1: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         index2: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
+                //     });
+                //     springs.push(Spring {
+                //         index1: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         index2: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
+                //     });
+                //     springs.push(Spring {
+                //         index1: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         index2: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
+                //     });
+                // } else if i == 0 || i == N_CLOTH_VERTICES_PER_ROW -1 {
+                //     springs.push(Spring {
+                //         index1: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         index2: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
+                //     });
+                //     springs.push(Spring {
+                //         index1: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         index2: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
+                //     });
+                // } else if j == 0 || j == N_CLOTH_VERTICES_PER_ROW -1 {
+                //     springs.push(Spring {
+                //         index1: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         index2: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
+                //     });
+                //     springs.push(Spring {
+                //         index1: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         index2: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * (2.0 as f32).sqrt(),
+                //     });
+                // }
+                // // bend springs
+                // if i > 1 {
+                //     springs.push(Spring {
+                //         index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                //         index2: ((i - 2) * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2.0,
+                //     });
+                // }
+                // if i < N_CLOTH_VERTICES_PER_ROW - 2 {
+                //     springs.push(Spring {
+                //         index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                //         index2: ((i + 2) * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2.0,
+                //     });
+                // }
+                // if j > 1 {
+                //     springs.push(Spring {
+                //         index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                //         index2: (i * N_CLOTH_VERTICES_PER_ROW + j - 2) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2.0,
+                //     });
+                // }
+                // if j < N_CLOTH_VERTICES_PER_ROW - 2 {
+                //     springs.push(Spring {
+                //         index1: (i * N_CLOTH_VERTICES_PER_ROW + j) as f32,
+                //         index2: (i * N_CLOTH_VERTICES_PER_ROW + j + 2) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2.0,
+                //     });
+                // }
+                // if i <= 1 || i >= N_CLOTH_VERTICES_PER_ROW - 2 {
+                //     springs.push(Spring {
+                //         index1: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         index2: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2.0,
+                //     });
+                // }
+                // if j <= 1 || j >= N_CLOTH_VERTICES_PER_ROW - 2 {
+                //     springs.push(Spring {
+                //         index1: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         index2: (2 * N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32,
+                //         rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2.0,
+                //     });
+                // }
             }
         }
 
+        // print the springs
+        // for spring in springs.iter() {
+        //     println!("{} {} {}", spring.index1, spring.index2, spring.rest_length);
+        // }
+
         // create a buffer for the springs
         let springs_buffer = context.create_buffer(
-            &springs,
-            wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
+            springs.as_slice(),
+            wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::VERTEX,
+        );
+        // create a bind group for the springs
+        let springs_bind_group = context.create_bind_group(
+            "Sping Bind Group",
+            &compute_pipeline.get_bind_group_layout(3),
+            &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: springs_buffer.as_entire_binding(),
+                },
+            ]
         );
 
         println!("{} springs", springs.len());
@@ -445,11 +471,14 @@ impl MyApp {
             cloth_indices,
             // compute
             compute_pipeline,
+            forces_compute_pipeline,
             compute_vertices_bind_group,
             compute_velocities_bind_group,
             compute_data_bind_group,
             compute_data_buffer,
             compute_data,
+            // springs
+            springs_bind_group,
         }
     }
     
@@ -503,12 +532,21 @@ impl Application for MyApp {
 
         {
             let mut compute_pass = computation.begin_compute_pass();
+            // calculate the forces
+            compute_pass.set_pipeline(&self.forces_compute_pipeline);
+            compute_pass.set_bind_group(0, &self.compute_vertices_bind_group, &[]);
+            compute_pass.set_bind_group(1, &self.compute_velocities_bind_group, &[]);
+            compute_pass.set_bind_group(2, &self.compute_data_bind_group, &[]);
+            compute_pass.set_bind_group(3, &self.springs_bind_group, &[]);
+            compute_pass.dispatch_workgroups(((N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW) as f64/128.0).ceil() as u32, 1, 1);
 
+            // update the positions and collisions
             compute_pass.set_pipeline(&self.compute_pipeline);
             compute_pass.set_bind_group(0, &self.compute_vertices_bind_group, &[]);
             compute_pass.set_bind_group(1, &self.compute_velocities_bind_group, &[]);
             compute_pass.set_bind_group(2, &self.compute_data_bind_group, &[]);
-            compute_pass.dispatch_workgroups(((N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW) as f64/64.0).ceil() as u32, 1, 1);
+            compute_pass.set_bind_group(3, &self.springs_bind_group, &[]);
+            compute_pass.dispatch_workgroups(((N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW) as f64/128.0).ceil() as u32, 1, 1);
         }
         computation.submit();
     }
