@@ -64,21 +64,4 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
     let distance = length(position - sphere_center);
 
     verticiesVelocities[param.x].velocity_x += 0.0;
-
-    if (distance < sphere_radius) {
-        // the vertex is inside the sphere
-        // we need to push it out of the sphere
-        // we do this by calculating the normal of the sphere at the vertex position
-        // and then we push the vertex in the opposite direction of the normal
-
-        let normal = normalize(position - sphere_center);
-
-        verticiesPositions[param.x].position_x += normal.x * (sphere_radius - distance);
-        verticiesPositions[param.x].position_y += normal.y * (sphere_radius - distance);
-        verticiesPositions[param.x].position_z += normal.z * (sphere_radius - distance);
-
-        verticiesVelocities[param.x].velocity_x = 0.0;
-        verticiesVelocities[param.x].velocity_y = 0.0;
-        verticiesVelocities[param.x].velocity_z = 0.0;
-    }
 }
