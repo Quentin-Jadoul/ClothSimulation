@@ -20,7 +20,7 @@ struct Velocity {
 
 struct ComputeData {
     delta_time: f32,
-    nb_vertices: u32,
+    nb_vertices: f32,
     sphere_radius: f32,
     sphere_center_x: f32,
     sphere_center_y: f32,
@@ -52,18 +52,18 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
     }
 
     var force_resultant = vec3<f32>(0.0, 0.0, 0.0);
-    for (var i = 0 ; i < 12; i++) {
-        let spring = springsR[param.x*u32(12) + u32(i)];
+    for (var i = 0 ; i < 4; i++) {
+        let spring = springsR[param.x*u32(4) + u32(i)];
         let vertex_index_1 = u32(spring.vertex_index_1);
         let vertex_index_2 = u32(spring.vertex_index_2);
         let rest_length = spring.rest_length;
 
-        if u32(spring.vertex_index_2) < u32(data.nb_vertices) + u32(1) {
+        if u32(spring.vertex_index_2) <= u32(data.nb_vertices) {
             // calculate the distance between the two vertices
             let position_1 = vec3<f32>(verticiesPositions[vertex_index_1].position_x, verticiesPositions[vertex_index_1].position_y, verticiesPositions[vertex_index_1].position_z);
             let position_2 = vec3<f32>(verticiesPositions[vertex_index_2].position_x, verticiesPositions[vertex_index_2].position_y, verticiesPositions[vertex_index_2].position_z);
-            let distance = length(position_1 - position_2);
-            let direction = normalize(position_1 - position_2);
+            var distance = length(position_1 - position_2);
+            var direction = normalize(position_1 - position_2);
 
             // calculate the speed of the first vertex relative to the second
             let velocity_1 = vec3<f32>(verticiesVelocities[vertex_index_1].velocity_x, verticiesVelocities[vertex_index_1].velocity_y, verticiesVelocities[vertex_index_1].velocity_z);
@@ -79,14 +79,15 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
                     let damping_force = -data.structural_damping * relative_velocity;
                     force_resultant += damping_force * velocity_direction;
                 }
-            } else if i < 8 {
+            } else if i < 12 {
                 let force = -data.shear_stiffness * (distance - rest_length);
                 force_resultant += force * direction;
                 if relative_velocity != 0.0 {
                     let damping_force = -data.shear_damping * relative_velocity;
                     force_resultant += damping_force * velocity_direction;
                 }
-            } else if i < 12 {
+            } else if i < 8 {
+                // direction.z = 0.0;
                 let force = -data.bend_stiffness * (distance - rest_length) - data.bend_damping * relative_velocity;
                 force_resultant += force * direction;
                 if relative_velocity != 0.0 {
@@ -97,6 +98,21 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
         }
     }
     force_resultant.y += -9.81 * data.vertex_mass;
+    // force_resultant.z = 0.0;
+
+
+
+    // add friction forces between the cloth and the sphere
+    // let sphere_center = vec3<f32>(data.sphere_center_x, data.sphere_center_y, data.sphere_center_z);
+    // let sphere_radius = data.sphere_radius;
+    // let position = vec3<f32>(verticiesPositions[param.x].position_x, verticiesPositions[param.x].position_y, verticiesPositions[param.x].position_z);
+    // let distance = length(position - sphere_center);
+    // if distance < sphere_radius {
+    //     let direction = normalize(position - sphere_center);
+    //     let force = -data.vertex_mass * 9.81 * (sphere_radius - distance) / sphere_radius;
+    //     force_resultant += force * direction;
+    // }
+    
 
     // update the velocity of the vertex
     verticiesVelocities[param.x].velocity_x += (force_resultant.x / data.vertex_mass) * data.delta_time;

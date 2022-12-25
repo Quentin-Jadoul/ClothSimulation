@@ -16,7 +16,7 @@ use wgpu_bootstrap::{
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct ComputeData {
     delta_time: f32,
-    nb_vertices: u32,
+    nb_vertices: f32,
     sphere_radius: f32,
     sphere_center_x: f32,
     sphere_center_y: f32,
@@ -45,26 +45,26 @@ struct Spring {
 }
 
 // we want to change the size of the cloth, the number of vertices and the start position
-const CLOTH_SIZE: u32 = 40;
-const N_CLOTH_VERTICES_PER_ROW: u32 = 200; // the cloth is a square, the minimum is 2
+const CLOTH_SIZE: f32 = 20.0;
+const N_CLOTH_VERTICES_PER_ROW: u32 = 25; // the cloth is a square, the minimum is 2
 const CLOTH_CENTER_X: f32 = 0.0;
-const CLOTH_CENTER_Y: f32 = 15.0;
+const CLOTH_CENTER_Y: f32 = 20.0;
 const CLOTH_CENTER_Z: f32 = 0.0;
 // Sphere
-const SPHERE_RADIUS: f32 = 10.0;
+const SPHERE_RADIUS: f32 = 8.0;
 const SPHERE_CENTER_X: f32 = 0.0;
 const SPHERE_CENTER_Y: f32 = 0.0;
 const SPHERE_CENTER_Z: f32 = 0.0;
 // Physics
 const MASS: f32 = 100.0;
 // const VERTEX_MASS: f32 = MASS / (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32;
-const VERTEX_MASS: f32 = 5.0;
-const STRUCTURAL_STIFFNESS: f32 = 1000.0;
-const SHEAR_STIFFNESS: f32 = 900.0;
-const BEND_STIFFNESS: f32 = 700.0;
-const STRUCTURAL_DAMPING: f32 = 60.0;
-const SHEAR_DAMPING: f32 = 20.0;
-const BEND_DAMPING: f32 = 10.0;
+const VERTEX_MASS: f32 = 0.3;
+const STRUCTURAL_STIFFNESS: f32 = 20.0;
+const SHEAR_STIFFNESS: f32 = 0.0;
+const BEND_STIFFNESS: f32 = 0.0;
+const STRUCTURAL_DAMPING: f32 = 4.0;
+const SHEAR_DAMPING: f32 = 0.0;
+const BEND_DAMPING: f32 = 0.0;
 
 struct MyApp {
     camera_bind_group: wgpu::BindGroup,
@@ -169,20 +169,21 @@ impl MyApp {
             for j in 0..N_CLOTH_VERTICES_PER_ROW {
                 cloth_vertices.push(Vertex {
                     position: [
-                        CLOTH_CENTER_X + (i as f64 * (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64)) as f32 - (CLOTH_SIZE / 2) as f32,
+                        CLOTH_CENTER_X + i as f32 * (CLOTH_SIZE / (N_CLOTH_VERTICES_PER_ROW - 1) as f32) - (CLOTH_SIZE / 2.0),
                         CLOTH_CENTER_Y,
-                        CLOTH_CENTER_Z + (j as f64 * (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64)) as f32 - (CLOTH_SIZE / 2) as f32,
+                        CLOTH_CENTER_Z + j as f32 * (CLOTH_SIZE / (N_CLOTH_VERTICES_PER_ROW - 1) as f32) - (CLOTH_SIZE / 2.0),
                     ],
                     normal: [0.0, 0.0, 0.0],
                     tangent: [0.0, 0.0, 0.0],
                     // deine the texture coordinates
                     tex_coords: [
-                        (i as f64 * (1.0 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64)) as f32,
-                        (j as f64 * (1.0 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64)) as f32,
+                        i as f32 * (1.0 / (N_CLOTH_VERTICES_PER_ROW - 1) as f32),
+                        j as f32 * (1.0 / (N_CLOTH_VERTICES_PER_ROW - 1) as f32),
                     ],
                 });
             }
         }
+
         // create the indices
         for i in 0..N_CLOTH_VERTICES_PER_ROW - 1 {
             for j in 0..N_CLOTH_VERTICES_PER_ROW - 1 {
@@ -196,6 +197,7 @@ impl MyApp {
                 cloth_indices.push(((i + 1) * N_CLOTH_VERTICES_PER_ROW + j) as u16);
             }
         }
+
         // set the default speed of the cloth
         let mut cloth_velocities: Vec<Velocity> = Vec::new();
         for _i in cloth_vertices.iter_mut() {
@@ -253,7 +255,7 @@ impl MyApp {
         // compute data -----------------------------------------------------
         let compute_data = ComputeData {
             delta_time: 0.01,
-            nb_vertices: N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW,
+            nb_vertices: (N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW) as f32,
             sphere_radius: SPHERE_RADIUS,
             sphere_center_x: SPHERE_CENTER_X,
             sphere_center_y: SPHERE_CENTER_Y,
@@ -292,78 +294,92 @@ impl MyApp {
         for i in 0..N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW {
             // structural springs
             for j in [-1,1] as [i32; 2] {
-                let mut index2 = (i as i32 + j) as f32;
-                if i as i32 + j > (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as i32 || i as i32 + j < 0 {
-                    index2 = (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW + 1) as f32;
+                // col +- 1
+                let col: i32 = (i % N_CLOTH_VERTICES_PER_ROW) as i32;
+                let row: i32 = (i / N_CLOTH_VERTICES_PER_ROW) as i32;
+                let mut index2 = row * N_CLOTH_VERTICES_PER_ROW as i32 + col + j;
+                if col + j > N_CLOTH_VERTICES_PER_ROW as i32 - 1 || col + j < 0 {
+                    index2 = (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW + 1) as i32;
                 }
                 springs.push(Spring {
                     index1: i as f32,
-                    index2: index2,
-                    rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32,
+                    index2: index2 as f32,
+                    rest_length: (CLOTH_SIZE / (N_CLOTH_VERTICES_PER_ROW - 1) as f32),
                 });
-                index2 = (i as i32 + j * N_CLOTH_VERTICES_PER_ROW as i32) as f32;
-                if i as i32 + j * N_CLOTH_VERTICES_PER_ROW as i32 > (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as i32 || (i as i32 + j * (N_CLOTH_VERTICES_PER_ROW as i32) < 0) {
-                    index2 = (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW + 1) as f32;
+                // row +- 1
+                index2 = (row + j) * N_CLOTH_VERTICES_PER_ROW as i32 + col;
+                if row + j > N_CLOTH_VERTICES_PER_ROW as i32 - 1 || row + j < 0 {
+                    index2 = (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW + 1) as i32;
                 }
                 springs.push(Spring {
                     index1: i as f32,
-                    index2: index2,
-                    rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32,
+                    index2: index2 as f32,
+                    rest_length: (CLOTH_SIZE / (N_CLOTH_VERTICES_PER_ROW - 1) as f32),
                 });
             }
             // shear springs
-            for j in [-1,1] as [i32; 2] {
-                let mut index2 = (i as i32 + j + j * N_CLOTH_VERTICES_PER_ROW as i32) as f32;
-                if i as i32 + j + j * N_CLOTH_VERTICES_PER_ROW as i32 > (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as i32 || (i as i32 + j + j * (N_CLOTH_VERTICES_PER_ROW as i32) < 0) {
-                    index2 = (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW + 1) as f32;
-                }
-                springs.push(Spring {
-                    index1: i as f32,
-                    index2: index2,
-                    rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2f32.sqrt(),
-                });
-                index2 = (i as i32 + j - j * N_CLOTH_VERTICES_PER_ROW as i32) as f32;
-                if i as i32 + j - j * N_CLOTH_VERTICES_PER_ROW as i32 > (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as i32 || (i as i32 + j - j * (N_CLOTH_VERTICES_PER_ROW as i32) < 0) {
-                    index2 = (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW + 1) as f32;
-                }
-                springs.push(Spring {
-                    index1: i as f32,
-                    index2: index2,
-                    rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2f32.sqrt(),
-                });
-            }
+            // for j in [-1,1] as [i32; 2] {
+            //     let mut index2 = (i as i32 + j + j * N_CLOTH_VERTICES_PER_ROW as i32) as f32;
+            //     let mut debug = (i as i32 + j + j * N_CLOTH_VERTICES_PER_ROW as i32);
+            //     println!("{}", debug);
+            //     println!("{} {} {}", i, j, index2);
+            //     if i as i32 + j + j * N_CLOTH_VERTICES_PER_ROW as i32 > (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as i32 || (i as i32 + j + j * (N_CLOTH_VERTICES_PER_ROW as i32) < 0) {
+            //         index2 = (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW + 1) as f32;
+            //     }
+            //     springs.push(Spring {
+            //         index1: i as f32,
+            //         index2: index2,
+            //         rest_length: (CLOTH_SIZE / (N_CLOTH_VERTICES_PER_ROW - 1) as f32) * (2.0 as f32).sqrt(),
+            //     });
+            //     index2 = (i as i32 + j - j * N_CLOTH_VERTICES_PER_ROW as i32) as f32;
+            //     debug = i as i32 + j - j * N_CLOTH_VERTICES_PER_ROW as i32;
+            //     println!("{}", debug);
+            //     println!("{} {} {}", i, j, index2);
+            //     if i as i32 + j - j * N_CLOTH_VERTICES_PER_ROW as i32 > (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as i32 || (i as i32 + j - j * (N_CLOTH_VERTICES_PER_ROW as i32) < 0) {
+            //         index2 = (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW + 1) as f32;
+            //     }
+            //     springs.push(Spring {
+            //         index1: i as f32,
+            //         index2: index2,
+            //         rest_length: (CLOTH_SIZE / (N_CLOTH_VERTICES_PER_ROW - 1) as f32) * (2.0 as f32).sqrt(),
+            //     });
+            // }
             // bend springs
-            for j in [-2,2] as [i32; 2] {
-                let mut index2 = (i as i32 + j) as f32;
-                if i as i32 + j > (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as i32 || i as i32 + j < 0 {
-                    index2 = (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW + 1) as f32;
-                }
-                springs.push(Spring {
-                    index1: i as f32,
-                    index2: index2,
-                    rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2f32,
-                });
-                index2 = (i as i32 + j * N_CLOTH_VERTICES_PER_ROW as i32) as f32;
-                if i as i32 + j * N_CLOTH_VERTICES_PER_ROW as i32 > (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as i32 || (i as i32 + j * (N_CLOTH_VERTICES_PER_ROW as i32) < 0) {
-                    index2 = (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW + 1) as f32;
-                }
-                springs.push(Spring {
-                    index1: i as f32,
-                    index2: index2,
-                    rest_length: (CLOTH_SIZE as f64 / (N_CLOTH_VERTICES_PER_ROW - 1) as f64) as f32 * 2f32,
-                });
-            }
+            // for j in [-2,2] as [i32; 2] {
+            //     let mut index2 = (i as i32 + j) as f32;
+            //     if i as i32 + j > (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as i32 || i as i32 + j < 0 {
+            //         index2 = (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW + 1) as f32;
+            //     }
+            //     springs.push(Spring {
+            //         index1: i as f32,
+            //         index2: index2,
+            //         rest_length: (CLOTH_SIZE / (N_CLOTH_VERTICES_PER_ROW - 1) as f32) * 2 as f32,
+            //     });
+            //     index2 = (i as i32 + j * N_CLOTH_VERTICES_PER_ROW as i32) as f32;
+            //     if i as i32 + j * N_CLOTH_VERTICES_PER_ROW as i32 > (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as i32 || (i as i32 + j * (N_CLOTH_VERTICES_PER_ROW as i32) < 0) {
+            //         index2 = (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW + 1) as f32;
+            //     }
+            //     springs.push(Spring {
+            //         index1: i as f32,
+            //         index2: index2,
+            //         rest_length: (CLOTH_SIZE / (N_CLOTH_VERTICES_PER_ROW - 1) as f32) * 2 as f32,
+            //     });
+            // }
         }
 
-        // // print the springs
-        // for spring in springs.iter() {
-        //     println!("{} {} {}", spring.index1, spring.index2, spring.rest_length);
+        // DEBUG
+        // print the springs
+        // for i in 0..springs.len() {
+        //     println!("spring {}: index1: {}, index2: {}, rest_length: {}", i, springs[i].index1, springs[i].index2, springs[i].rest_length);
         // }
-        // calculate the distance between the vertex 0 and the vertex 1
-        let distance = [cloth_vertices[1].position[0] - cloth_vertices[0].position[0], cloth_vertices[1].position[1] - cloth_vertices[0].position[1], cloth_vertices[1].position[2] - cloth_vertices[0].position[2]];
-        // calculate the length of the distance
-        let distance_length = (distance[0] * distance[0] + distance[1] * distance[1] + distance[2] * distance[2]).sqrt();
-        println!("distance length {}", distance_length);
+
+        // print the rest length
+        // structural rest length
+        println!("structural rest length: {}", CLOTH_SIZE as f32 / (N_CLOTH_VERTICES_PER_ROW - 1) as f32);
+        // shear rest length
+        println!("shear rest length: {}", CLOTH_SIZE as f32 / (N_CLOTH_VERTICES_PER_ROW - 1) as f32 * (2.0 as f32).sqrt());
+        // bend rest length
+        println!("bend rest length: {}", CLOTH_SIZE as f32 / (N_CLOTH_VERTICES_PER_ROW - 1) as f32 * 2 as f32);
 
         // create a buffer for the springs
         let springs_buffer = context.create_buffer(
@@ -442,7 +458,7 @@ impl Application for MyApp {
         // update the compute data
         let compute_data = ComputeData {
             delta_time,
-            nb_vertices: N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW,
+            nb_vertices: (N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW) as f32,
             sphere_radius: SPHERE_RADIUS,
             sphere_center_x: SPHERE_CENTER_X,
             sphere_center_y: SPHERE_CENTER_Y,
@@ -475,7 +491,7 @@ impl Application for MyApp {
             compute_pass.set_bind_group(1, &self.compute_velocities_bind_group, &[]);
             compute_pass.set_bind_group(2, &self.compute_data_bind_group, &[]);
             compute_pass.set_bind_group(3, &self.springs_bind_group, &[]);
-            compute_pass.dispatch_workgroups(((N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW) as f64/128.0).ceil() as u32, 1, 1);
+            compute_pass.dispatch_workgroups(((N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW) as f32/128.0).ceil() as u32, 1, 1);
         }
         computation.submit();
     }

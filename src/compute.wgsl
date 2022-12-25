@@ -20,7 +20,7 @@ struct Velocity {
 
 struct ComputeData {
     delta_time: f32,
-    nb_vertices: u32,
+    nb_vertices: f32,
     sphere_radius: f32,
     sphere_center_x: f32,
     sphere_center_y: f32,
