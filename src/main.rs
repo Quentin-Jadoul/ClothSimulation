@@ -45,7 +45,7 @@ struct Spring {
 }
 
 // we want to change the size of the cloth, the number of vertices and the start position
-const CLOTH_SIZE: f32 = 20.0;
+const CLOTH_SIZE: f32 = 35.0;
 const N_CLOTH_VERTICES_PER_ROW: u32 = 25; // the cloth is a square, the minimum is 2
 const CLOTH_CENTER_X: f32 = 0.0;
 const CLOTH_CENTER_Y: f32 = 10.0;
