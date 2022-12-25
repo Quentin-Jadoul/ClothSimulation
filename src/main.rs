@@ -59,12 +59,12 @@ const SPHERE_CENTER_Z: f32 = 0.0;
 const MASS: f32 = 200.0;
 // const VERTEX_MASS: f32 = MASS / (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32;
 const VERTEX_MASS: f32 = 0.3;
-const STRUCTURAL_STIFFNESS: f32 = 20.0;
-const SHEAR_STIFFNESS: f32 = 20.0;
+const STRUCTURAL_STIFFNESS: f32 = 40.0;
+const SHEAR_STIFFNESS: f32 = 30.0;
 const BEND_STIFFNESS: f32 = 10.0;
 const STRUCTURAL_DAMPING: f32 = 4.0;
 const SHEAR_DAMPING: f32 = 2.0;
-const BEND_DAMPING: f32 = 0.0;
+const BEND_DAMPING: f32 = 0.5;
 
 struct MyApp {
     camera_bind_group: wgpu::BindGroup,
