@@ -99,43 +99,6 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
     }
     force_sum.y += -9.81 * data.vertex_mass;
 
-    // // add a collision force with the sphere
-    // let sphere_center = vec3<f32>(data.sphere_center_x, data.sphere_center_y, data.sphere_center_z);
-    // let sphere_radius = data.sphere_radius;
-    // let position = vec3<f32>(verticiesPositions[param.x].position_x, verticiesPositions[param.x].position_y, verticiesPositions[param.x].position_z);
-    // let distance = length(position - sphere_center);
-    // if distance < sphere_radius {
-    //     // resultant force, normal component
-    //     let normal = normalize(position - sphere_center);
-    //     let normal_component = dot(force_sum, normal) * normal;
-    //     let tangent_component = force_sum - normal_component;
-    //     let tangent = normalize(tangent_component);
-    //     // resultant force
-    //     let resultant = -normal_component;
-    //     // friction coefficient
-    //     let mu = 0.1;
-    //     // friction force
-    //     let friction_force = -min(mu * length(normal_component), length(tangent_component));
-    //     force_sum += resultant + friction_force * tangent;
-
-    //     verticiesPositions[param.x].position_x += normal.x * (sphere_radius - distance);
-    //     verticiesPositions[param.x].position_y += normal.y * (sphere_radius - distance);
-    //     verticiesPositions[param.x].position_z += normal.z * (sphere_radius - distance);
-    // }
-
-    // // add friction forces between the cloth and the sphere
-    // let sphere_center = vec3<f32>(data.sphere_center_x, data.sphere_center_y, data.sphere_center_z);
-    // let sphere_radius = data.sphere_radius;
-    // let position = vec3<f32>(verticiesPositions[param.x].position_x, verticiesPositions[param.x].position_y, verticiesPositions[param.x].position_z);
-    // let distance = length(position - sphere_center);
-    // if distance <= sphere_radius {
-    //     verticiesPositions
-    //     let direction = normalize(position - sphere_center);
-    //     let force = -data.vertex_mass * 9.81;
-    //     force_resultant += force * direction;
-    // }
-    
-
     // update the velocity of the vertex
     verticiesVelocities[param.x].velocity_x += (force_sum.x / data.vertex_mass) * data.delta_time;
     verticiesVelocities[param.x].velocity_y += (force_sum.y / data.vertex_mass) * data.delta_time;
