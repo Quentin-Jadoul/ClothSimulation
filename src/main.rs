@@ -1,3 +1,5 @@
+// parrallel programming project
+
 use wgpu_bootstrap::{
     window::Window,
     frame::Frame,
