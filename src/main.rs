@@ -47,7 +47,7 @@ struct Spring {
 }
 
 // we want to change the size of the cloth, the number of vertices and the start position
-const CLOTH_SIZE: f32 = 35.0;
+const CLOTH_SIZE: f32 = 50.0;
 const N_CLOTH_VERTICES_PER_ROW: u32 = 25; // the cloth is a square, the minimum is 2
 const CLOTH_CENTER_X: f32 = 0.0;
 const CLOTH_CENTER_Y: f32 = 10.0;
@@ -60,15 +60,15 @@ const SPHERE_CENTER_Z: f32 = 0.0;
 // Physics
 const MASS: f32 = 200.0;
 // const VERTEX_MASS: f32 = MASS / (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32;
-const VERTEX_MASS: f32 = 1.0;
-const STRUCTURAL_STIFFNESS: f32 = 1000.0;
-const SHEAR_STIFFNESS: f32 = 100.0;
-const BEND_STIFFNESS: f32 = 10.0;
-const STRUCTURAL_DAMPING: f32 = 100.0;
-const SHEAR_DAMPING: f32 = 10.0;
-const BEND_DAMPING: f32 = 0.0;
+const VERTEX_MASS: f32 = 0.16;
+const STRUCTURAL_STIFFNESS: f32 = 150.0;
+const SHEAR_STIFFNESS: f32 = 5.0;
+const BEND_STIFFNESS: f32 = 15.0;
+const STRUCTURAL_DAMPING: f32 = 1.5;
+const SHEAR_DAMPING: f32 = 0.05;
+const BEND_DAMPING: f32 = 0.15;
 
-const N_ITERATIONS: u32 = 100; 
+const N_ITERATIONS: u32 = 500; 
 
 struct MyApp {
     camera_bind_group: wgpu::BindGroup,
@@ -105,7 +105,7 @@ impl MyApp {
         let texture_bind_group = create_texture_bind_group(context, &texture);
 
         let camera = Camera {
-            eye: (20.0, 30.0, 20.0).into(),
+            eye: (40.0, 30.0, 30.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: cgmath::Vector3::unit_y(),
             aspect: context.get_aspect_ratio(),
