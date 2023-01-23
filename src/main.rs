@@ -60,13 +60,15 @@ const SPHERE_CENTER_Z: f32 = 0.0;
 // Physics
 const MASS: f32 = 200.0;
 // const VERTEX_MASS: f32 = MASS / (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32;
-const VERTEX_MASS: f32 = 0.3;
-const STRUCTURAL_STIFFNESS: f32 = 20.0;
-const SHEAR_STIFFNESS: f32 = 20.0;
+const VERTEX_MASS: f32 = 1.0;
+const STRUCTURAL_STIFFNESS: f32 = 1000.0;
+const SHEAR_STIFFNESS: f32 = 100.0;
 const BEND_STIFFNESS: f32 = 10.0;
-const STRUCTURAL_DAMPING: f32 = 4.0;
-const SHEAR_DAMPING: f32 = 2.0;
+const STRUCTURAL_DAMPING: f32 = 100.0;
+const SHEAR_DAMPING: f32 = 10.0;
 const BEND_DAMPING: f32 = 0.0;
+
+const N_ITERATIONS: u32 = 100; 
 
 struct MyApp {
     camera_bind_group: wgpu::BindGroup,
@@ -436,7 +438,7 @@ impl Application for MyApp {
     fn update(&mut self, context: &Context, delta_time: f32) {
         // update the compute data
         let compute_data = ComputeData {
-            delta_time,
+            delta_time: delta_time/N_ITERATIONS as f32,
             nb_vertices: (N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW) as f32,
             sphere_radius: SPHERE_RADIUS,
             sphere_center_x: SPHERE_CENTER_X,
@@ -454,6 +456,7 @@ impl Application for MyApp {
 
         let mut computation = Computation::new(context);
 
+        for _ in 0..N_ITERATIONS
         {
             let mut compute_pass = computation.begin_compute_pass();
             // calculate the forces
