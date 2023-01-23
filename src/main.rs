@@ -45,7 +45,7 @@ struct Spring {
 }
 
 // we want to change the size of the cloth, the number of vertices and the start position
-const CLOTH_SIZE: f32 = 35.0;
+const CLOTH_SIZE: f32 = 50.0;
 const N_CLOTH_VERTICES_PER_ROW: u32 = 25; // the cloth is a square, the minimum is 2
 const CLOTH_CENTER_X: f32 = 0.0;
 const CLOTH_CENTER_Y: f32 = 10.0;
@@ -58,13 +58,15 @@ const SPHERE_CENTER_Z: f32 = 0.0;
 // Physics
 const MASS: f32 = 200.0;
 // const VERTEX_MASS: f32 = MASS / (N_CLOTH_VERTICES_PER_ROW * N_CLOTH_VERTICES_PER_ROW) as f32;
-const VERTEX_MASS: f32 = 0.3;
-const STRUCTURAL_STIFFNESS: f32 = 40.0;
-const SHEAR_STIFFNESS: f32 = 30.0;
-const BEND_STIFFNESS: f32 = 10.0;
-const STRUCTURAL_DAMPING: f32 = 4.0;
-const SHEAR_DAMPING: f32 = 2.0;
-const BEND_DAMPING: f32 = 0.5;
+const VERTEX_MASS: f32 = 0.16;
+const STRUCTURAL_STIFFNESS: f32 = 150.0;
+const SHEAR_STIFFNESS: f32 = 5.0;
+const BEND_STIFFNESS: f32 = 15.0;
+const STRUCTURAL_DAMPING: f32 = 1.5;
+const SHEAR_DAMPING: f32 = 0.05;
+const BEND_DAMPING: f32 = 0.15;
+
+const N_ITERATIONS: u32 = 500; 
 
 struct MyApp {
     camera_bind_group: wgpu::BindGroup,
@@ -101,7 +103,7 @@ impl MyApp {
         let texture_bind_group = create_texture_bind_group(context, &texture);
 
         let camera = Camera {
-            eye: (20.0, 30.0, 20.0).into(),
+            eye: (30.0, 30.0, 30.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: cgmath::Vector3::unit_y(),
             aspect: context.get_aspect_ratio(),
@@ -434,7 +436,7 @@ impl Application for MyApp {
     fn update(&mut self, context: &Context, delta_time: f32) {
         // update the compute data
         let compute_data = ComputeData {
-            delta_time,
+            delta_time: delta_time/N_ITERATIONS as f32,
             nb_vertices: (N_CLOTH_VERTICES_PER_ROW*N_CLOTH_VERTICES_PER_ROW) as f32,
             sphere_radius: SPHERE_RADIUS,
             sphere_center_x: SPHERE_CENTER_X,
@@ -452,6 +454,7 @@ impl Application for MyApp {
 
         let mut computation = Computation::new(context);
 
+        for _ in 0..N_ITERATIONS
         {
             let mut compute_pass = computation.begin_compute_pass();
             // calculate the forces
